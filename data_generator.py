@@ -9,15 +9,28 @@ SCENARIOS = ("Normal", "DoS", "Port Scan", "Malware-like")
 FEATURES = ["packet_rate", "byte_rate", "failed_connections", "unique_ports", "cpu_load", "destination_count"]
 
 
-def generate_traffic(rows: int = 1200, seed: int = 42, scenario: str | None = None) -> pd.DataFrame:
-    """Return labeled, synthetic traffic records. No sockets or real traffic are used."""
+def generate_traffic(
+    rows: int = 1200,
+    seed: int = 42,
+    scenario: str | None = None,
+    attack_fraction: float = 0.25,
+) -> pd.DataFrame:
+    """Return labeled synthetic traffic; selected incidents are mixed with normal traffic."""
     if rows < 1:
         raise ValueError("rows must be positive")
     rng = np.random.default_rng(seed)
     if scenario is not None and scenario not in SCENARIOS:
         raise ValueError("scenario must be one of: " + ", ".join(SCENARIOS))
-    scenario_values = (np.full(rows, scenario, dtype=object) if scenario is not None else
-                       rng.choice(SCENARIOS, size=rows, p=[0.78, 0.08, 0.07, 0.07]))
+    if not 0 < attack_fraction < 1:
+        raise ValueError("attack_fraction must be between 0 and 1")
+    if scenario is None:
+        scenario_values = rng.choice(SCENARIOS, size=rows, p=[0.78, 0.08, 0.07, 0.07])
+    elif scenario == "Normal":
+        scenario_values = np.full(rows, "Normal", dtype=object)
+    else:
+        scenario_values = np.where(
+            rng.random(rows) < attack_fraction, scenario, "Normal"
+        )
     service = rng.choice(SERVICES, size=rows)
     n = rows
     packet = rng.normal(120, 28, n).clip(5, None)

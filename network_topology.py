@@ -2,12 +2,12 @@
 import networkx as nx
 
 SERVICES = {
-    "Hospital": {"tier": 1, "criticality": "Critical", "color": "#ef476f"},
-    "Emergency Dispatch": {"tier": 1, "criticality": "Critical", "color": "#ef476f"},
-    "Traffic Control": {"tier": 2, "criticality": "High", "color": "#ffd166"},
-    "Water Supply": {"tier": 2, "criticality": "High", "color": "#ffd166"},
-    "Power Grid": {"tier": 1, "criticality": "Critical", "color": "#ef476f"},
-    "Public Display": {"tier": 3, "criticality": "Low", "color": "#06d6a0"},
+    "Hospital": {"tier": 1, "criticality": "Critical", "civic_impact": 100, "color": "#ef476f"},
+    "Emergency Dispatch": {"tier": 1, "criticality": "Critical", "civic_impact": 95, "color": "#ef476f"},
+    "Traffic Control": {"tier": 2, "criticality": "High", "civic_impact": 70, "color": "#ffd166"},
+    "Water Supply": {"tier": 2, "criticality": "High", "civic_impact": 85, "color": "#ffd166"},
+    "Power Grid": {"tier": 1, "criticality": "Critical", "civic_impact": 100, "color": "#ef476f"},
+    "Public Display": {"tier": 3, "criticality": "Low", "civic_impact": 25, "color": "#06d6a0"},
 }
 EDGES = [("Hospital", "Emergency Dispatch"), ("Hospital", "Power Grid"),
          ("Emergency Dispatch", "Traffic Control"), ("Traffic Control", "Power Grid"),

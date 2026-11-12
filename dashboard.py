@@ -1,9 +1,12 @@
 """Cyber Resilience Smart City Network: a fictional city drill demonstration."""
+from html import escape
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from benchmark_data import evaluate_labeled_csv, preview_csv
+from anomaly_detector import classification_metrics
 from network_topology import SERVICES
 from simulation import run_simulation
 
@@ -80,23 +83,67 @@ preview_frame = None
 label_column = None
 normal_label = None
 if data_source == "Labeled public CSV":
-    uploaded_csv = st.sidebar.file_uploader("Upload a Kaggle CSV", type=["csv"], help="Use a labeled network-flow CSV. The app reads at most 50,000 rows for this demo.")
+    uploaded_csv = st.sidebar.file_uploader(
+        "Upload a labeled network-flow CSV",
+        type=["csv"],
+        help="The app reads at most 50,000 rows for this evaluation.",
+    )
     if uploaded_csv is not None:
         try:
             preview_frame, label_options = preview_csv(uploaded_csv.getvalue())
             if not label_options:
                 label_options = list(preview_frame.columns)
-            label_column = st.sidebar.selectbox("Which column has the traffic labels?", label_options)
-            label_values = sorted(preview_frame[label_column].dropna().astype(str).str.strip().unique().tolist())
-            likely_normal = next((value for value in label_values if value.casefold() in ("benign", "normal", "benign traffic", "0")), label_values[0])
-            normal_label = st.sidebar.selectbox("Which label means normal traffic?", label_values, index=label_values.index(likely_normal))
+            label_column = st.sidebar.selectbox(
+                "Which column has the traffic labels?", label_options
+            )
+            label_values = sorted(
+                preview_frame[label_column].dropna().astype(str).str.strip().unique().tolist()
+            )
+            likely_normal = next(
+                (value for value in label_values
+                 if value.casefold() in ("benign", "normal", "benign traffic", "0")),
+                label_values[0],
+            )
+            normal_label = st.sidebar.selectbox(
+                "Which label means normal traffic?",
+                label_values,
+                index=label_values.index(likely_normal),
+            )
         except Exception as exc:
             st.sidebar.error(f"Could not read that CSV: {exc}")
 with st.sidebar.expander("More options"):
-    rows = st.slider("Generated sample records", 100, 1000, 300, 50, disabled=data_source != "Generated demo data")
-    seed = st.number_input("Repeatable run number", min_value=0, max_value=99999, value=17, step=1)
+    rows = st.slider(
+        "Generated sample records", 100, 1000, 300, 50,
+        disabled=data_source != "Generated demo data",
+    )
+    seed = st.number_input(
+        "Repeatable run number", min_value=0, max_value=99999, value=17, step=1
+    )
 run = st.sidebar.button("▶  Run city drill", type="primary", use_container_width=True)
-st.sidebar.caption("City services and response are simulated. A labeled CSV can supply the traffic for detector evaluation.")
+st.sidebar.caption("City services and recovery actions are simulated. Uploaded CSV traffic is used only for offline detector evaluation.")
+
+st.markdown('<div class="brand-tag">INTERACTIVE CITY RESILIENCE DEMO</div>', unsafe_allow_html=True)
+st.markdown('<h1 class="hero">Cyber Resilience Smart City Network</h1>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">See how a smart city can spot trouble and keep essential services running.</div>', unsafe_allow_html=True)
+
+st.subheader("How it works")
+st.markdown("""
+<div class="flow-grid">
+  <div class="flow-card"><div class="flow-num">01 · TRAFFIC</div><div class="flow-icon">📡</div><div class="flow-title">Load traffic</div><div class="flow-copy">Generate mixed normal and incident records, or evaluate a labeled network-flow CSV.</div></div>
+  <div class="flow-card"><div class="flow-num">02 · IDS</div><div class="flow-icon">🧠</div><div class="flow-title">Detect unusual patterns</div><div class="flow-copy">Isolation Forest learns from normal traffic and predicts which records are anomalous.</div></div>
+  <div class="flow-card"><div class="flow-num">03 · RISK</div><div class="flow-icon">⚖️</div><div class="flow-title">Assess city risk</div><div class="flow-copy">Combine threat severity, service criticality, and civic impact into a transparent 0–100 score.</div></div>
+  <div class="flow-card"><div class="flow-num">04 · RESPOND</div><div class="flow-icon">🛡️</div><div class="flow-title">Recover and verify</div><div class="flow-copy">Use the service tier and risk score to choose failover, safe fallback, monitoring, or isolation.</div></div>
+</div>
+""", unsafe_allow_html=True)
+
+st.subheader("City-service tiers")
+st.markdown("""
+<div class="tier-grid">
+  <div class="tier-card"><div class="tier-title">🔴 Tier 1 · Essential services</div><div class="tier-services">Hospital · Emergency Dispatch · Power Grid</div><div class="tier-action">Risk ≥ 70: isolate and fail over; otherwise use safe fallback.</div></div>
+  <div class="tier-card"><div class="tier-title">🟡 Tier 2 · High-priority services</div><div class="tier-services">Traffic Control · Water Supply</div><div class="tier-action">Risk ≥ 55: use safe fallback; otherwise monitor.</div></div>
+  <div class="tier-card"><div class="tier-title">🟢 Tier 3 · Lower-priority service</div><div class="tier-services">Public Display</div><div class="tier-action">Risk ≥ 55: isolate; otherwise monitor with backup on standby.</div></div>
+</div>
+""", unsafe_allow_html=True)
 
 if "result" not in st.session_state or run:
     with st.spinner("Running the city drill…"):
@@ -120,49 +167,12 @@ data, before, after, actions, run_event, run_service, benchmark_metrics, dataset
 # Show the last completed run. Changing controls alone does not imply a run happened.
 run_label = EVENT_LABELS[run_event]
 
-st.markdown('<div class="brand-tag">INTERACTIVE CITY RESILIENCE DEMO</div>', unsafe_allow_html=True)
-st.markdown('<h1 class="hero">Cyber Resilience Smart City Network</h1>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">See how a smart city can spot trouble and keep essential services running.</div>', unsafe_allow_html=True)
-
-st.subheader("How it works")
-if benchmark_metrics:
-    input_copy = f"Use up to {benchmark_metrics['rows_loaded']:,} labeled rows from {dataset_name}."
-    detection_copy = "Train on normal-labeled rows, then score a held-out sample."
-else:
-    input_copy = f"Generate pretend {run_label.lower()} activity for {run_service}."
-    detection_copy = "Compare the records with generated normal traffic and flag unusual patterns."
-protect_copy = {
-    "Failover": f"Tier 1: isolate {run_service} and switch its service links to a backup.",
-    "Safe fallback": f"Tier 2: keep {run_service} available in a reduced safe mode.",
-    "Isolation": f"Tier 3: isolate {run_service}; leave its backup on standby.",
-    "No action": "Normal-day drill: no isolation or backup switch is needed.",
-}.get(actions.get("response_mode"), "Apply a response based on the selected service tier.")
-check_copy = ("Check that important city services remain connected."
-              if run_event != "Normal" else "Confirm that all services stay active.")
-st.markdown(f"""
-<div class="flow-grid">
-  <div class="flow-card"><div class="flow-num">01 · INPUT</div><div class="flow-icon">📡</div><div class="flow-title">Load traffic</div><div class="flow-copy">{input_copy}</div></div>
-  <div class="flow-card"><div class="flow-num">02 · SCORE</div><div class="flow-icon">🧠</div><div class="flow-title">Score traffic patterns</div><div class="flow-copy">Isolation Forest: {detection_copy}</div></div>
-  <div class="flow-card"><div class="flow-num">03 · RESPOND</div><div class="flow-icon">🛡️</div><div class="flow-title">Apply the tier plan</div><div class="flow-copy">{protect_copy}</div></div>
-  <div class="flow-card"><div class="flow-num">04 · VERIFY</div><div class="flow-icon">✅</div><div class="flow-title">Check city continuity</div><div class="flow-copy">{check_copy}</div></div>
-</div>
-""", unsafe_allow_html=True)
-st.caption("In this demo, the chosen scenario and service tier select the response. The detector’s score is displayed for analysis; it does not trigger the response automatically.")
-
-st.subheader("Three city-service tiers")
-st.markdown("""
-<div class="tier-grid">
-  <div class="tier-card"><div class="tier-title">🔴 Tier 1 · Keep essential services running</div><div class="tier-services">Hospital · Emergency Dispatch · Power Grid</div><div class="tier-action">Response: isolate affected node, switch to active backup</div></div>
-  <div class="tier-card"><div class="tier-title">🟡 Tier 2 · Continue in safe mode</div><div class="tier-services">Traffic Control · Water Supply</div><div class="tier-action">Response: use reduced safe fallback mode</div></div>
-  <div class="tier-card"><div class="tier-title">🟢 Tier 3 · Contain lower-priority service</div><div class="tier-services">Public Display</div><div class="tier-action">Response: isolate; leave backup on standby</div></div>
-</div>
-""", unsafe_allow_html=True)
-
 anomalies = int(data["detected_anomaly"].sum())
 ratio = anomalies / max(len(data), 1)
+prediction_metrics = classification_metrics(data["is_anomaly"], data["detected_anomaly"])
 if benchmark_metrics:
     result_title = "Public dataset evaluation complete"
-    result_copy = (f"The detector was evaluated on {benchmark_metrics['rows_evaluated']:,} held-out rows from {dataset_name}. "
+    result_copy = (f"The detector was evaluated on {benchmark_metrics['rows_evaluated']:,} held-out rows from {escape(dataset_name)}. "
                    f"The city response panel separately demonstrates the selected {run_label.lower()} policy for {run_service}.")
     result_pill = "Labeled CSV · held-out evaluation"
 elif run_event == "Normal":
@@ -171,23 +181,30 @@ elif run_event == "Normal":
     result_pill = "No response action taken"
 elif actions["critical_services_reachable"]:
     result_title = f"{run_label} drill complete"
-    result_copy = f"{run_label} activity was simulated for {run_service}. The Tier {actions['tier']} plan used {actions['response_mode'].lower()}, then checked that critical services remain reachable."
-    result_pill = "Recovery check passed"
+    if actions["response_taken"]:
+        result_copy = (f"{run_label} activity was simulated for {run_service}. The Tier {actions['tier']} "
+                       f"plan used {actions['response_mode'].lower()}, then checked critical-service connectivity.")
+        result_pill = "Recovery check passed"
+    else:
+        result_copy = (f"{run_label} activity was simulated for {run_service}. Risk is below its response "
+                       "threshold, so the service remains in place for monitoring.")
+        result_pill = "Monitor; no disruption"
 else:
     result_title = f"{run_label} drill needs attention"
     result_copy = f"The Tier {actions['tier']} plan used {actions['response_mode'].lower()} for {run_service}, but the critical-service connectivity check needs review."
     result_pill = "Recovery check needs review"
 st.markdown(f'<div class="result-box"><div class="result-title">{result_title}</div><div class="result-copy">{result_copy}</div><span class="result-pill">{result_pill}</span></div>', unsafe_allow_html=True)
 
-m1, m2, m3, m4 = st.columns(4, gap="medium")
-m1.metric("Rows evaluated" if benchmark_metrics else "Records created", f"{len(data):,}", dataset_name if benchmark_metrics else "made for this demo")
-m2.metric("Unusual patterns", f"{anomalies:,}", f"{ratio:.0%} of records")
-m3.metric("Response plan", actions.get("response_mode", "None"), f"Tier {actions.get('tier', '—')}")
-m4.metric("Civic impact score", str(actions.get("impact_score", "—")), "estimated demo score / 100")
+m1, m2, m3 = st.columns(3, gap="medium")
+m1.metric("Records evaluated", f"{len(data):,}", dataset_name if benchmark_metrics else None)
+m2.metric("Isolation Forest flags", f"{anomalies:,}", f"{ratio:.1%} predicted anomalous")
+m3.metric("Risk score", f"{actions['risk_score']}/100", actions["risk_assessment"]["threat_severity"] + " threat")
 
-overview, traffic_tab = st.tabs(["City view", "Traffic details"])
+ids_tab, risk_tab, overview_tab, healing_tab = st.tabs(
+    ["Intrusion Detection System", "Risk Assessment", "Network Overview", "Self-Healing"]
+)
 
-with overview:
+with overview_tab:
     st.subheader("City services")
     st.caption("Illustrated services with clear status for the city service and its backup. The drill target is marked.")
     icons = {"Hospital": "🏥", "Emergency Dispatch": "🚑", "Traffic Control": "🚦", "Water Supply": "💧", "Power Grid": "⚡", "Public Display": "📣"}
@@ -216,27 +233,17 @@ with overview:
         )
     st.markdown('<div class="service-grid">' + ''.join(service_cards) + '</div>', unsafe_allow_html=True)
 
-    st.subheader("What the city did")
-    st.markdown(f"**Drill:** {run_label} &nbsp; · &nbsp; **Service:** {run_service}")
-    if actions.get("response_taken"):
-        st.markdown(f"**Tier {actions['tier']} response: {actions['response_mode']}**")
-        if actions["response_mode"] == "Failover":
-            st.success("The affected device was isolated and its backup is active.")
-        elif actions["response_mode"] == "Safe fallback":
-            st.info(f"{run_service} continues in a reduced, safer operating mode.")
-        else:
-            st.warning(f"{run_service} was isolated; its backup remains on standby.")
-        if actions["critical_services_reachable"]:
-            st.markdown("### ✅ City check passed")
-            st.write("Critical city services remain connected in this simulated network.")
-        else:
-            st.warning("The critical-service connectivity check needs review.")
-    else:
-        st.success("No service isolation or rerouting was needed for this normal-day drill.")
-    st.caption("This is a pretend response in a fictional network, not a change to a real service.")
-
-with traffic_tab:
-    st.subheader("Traffic details")
+with ids_tab:
+    st.subheader("Isolation Forest results")
+    st.caption("Flags and percentages below come from Isolation Forest predictions. Ground-truth labels are used only for evaluation metrics.")
+    metrics_cols = st.columns(5)
+    metrics_cols[0].metric("Normal records", f"{prediction_metrics['normal_records']:,}")
+    metrics_cols[1].metric("Anomalous records", f"{prediction_metrics['anomalous_records']:,}")
+    detection_rate = prediction_metrics["detection_rate"]
+    false_positive_rate = prediction_metrics["false_positive_rate"]
+    metrics_cols[2].metric("Detection rate", "N/A" if detection_rate is None else f"{detection_rate:.1%}")
+    metrics_cols[3].metric("False positive rate", "N/A" if false_positive_rate is None else f"{false_positive_rate:.1%}")
+    metrics_cols[4].metric("Predicted anomalies", f"{anomalies:,}", f"{ratio:.1%} of evaluated rows")
     if benchmark_metrics:
         st.caption(f"Source: {dataset_name}. The model trained on normal-labeled rows and was evaluated on a held-out, stratified sample. Labels identify known dataset classes; a model flag is still not proof of a real-time attack.")
         st.subheader("Held-out evaluation")
@@ -254,7 +261,7 @@ with traffic_tab:
         )
         st.dataframe(matrix, use_container_width=True)
     else:
-        st.caption("Generated demo data: the detector marks records that look different from generated normal activity. A flag is a model result, not proof of an attack.")
+        st.caption("Generated traffic includes normal and scenario-labeled incident records, except the Normal scenario. A detector flag is a model result, not proof of an attack.")
     chart, table = st.columns([1.2, 1], gap="large")
     with chart:
         hist = go.Figure()
@@ -272,4 +279,49 @@ with traffic_tab:
     with st.expander("View sample records"):
         st.dataframe(data.head(100), use_container_width=True, hide_index=True)
 
-st.caption("Cyber Resilience Smart City Network · Fictional services · Generated traffic only")
+with risk_tab:
+    risk = actions["risk_assessment"]
+    st.subheader("Transparent risk assessment")
+    st.caption("Risk = 50% threat severity + 25% service criticality + 25% civic impact. Each factor is scored from 0 to 100.")
+    risk_cols = st.columns(4)
+    risk_cols[0].metric("Threat severity", f"{risk['threat_severity_score']}/100", risk["threat_severity"])
+    risk_cols[1].metric("Service criticality", f"{risk['service_criticality_score']}/100", f"Tier {actions['tier']}")
+    risk_cols[2].metric("Civic impact", f"{risk['civic_impact_score']}/100", run_service)
+    risk_cols[3].metric("Combined risk", f"{risk['risk_score']}/100")
+    st.progress(risk["risk_score"] / 100)
+    st.write(
+        f"Calculation: 0.50 × {risk['threat_severity_score']} + "
+        f"0.25 × {risk['service_criticality_score']} + "
+        f"0.25 × {risk['civic_impact_score']} = **{risk['risk_score']}/100**."
+    )
+    st.write(f"**Decision:** {actions['response_mode']} — {actions['response_detail']}")
+    st.caption("The selected simulated incident supplies threat severity. IDS predictions are evaluated separately and do not automatically trigger recovery.")
+    if run_event == "Normal":
+        st.info("Normal-day runs have no active threat, so no recovery action is taken; the score still shows the selected service's baseline criticality and civic impact.")
+    st.caption("Illustrative classroom score; weights and service impact ratings are documented in README.md, not a validated operational risk standard.")
+
+with healing_tab:
+    st.subheader("Tier-aware self-healing")
+    st.markdown(f"**Scenario:** {run_label} &nbsp; · &nbsp; **Service:** {run_service} &nbsp; · &nbsp; **Risk:** {actions['risk_score']}/100")
+    st.markdown(f"**Tier {actions['tier']} response: {actions['response_mode']}**")
+    st.write(actions["response_detail"])
+    if actions.get("response_taken"):
+        if actions["response_mode"] == "Failover":
+            st.success("The affected service was isolated, its backup activated, and service links rerouted.")
+        elif actions["response_mode"] == "Safe fallback":
+            st.info(f"{run_service} remains available in a reduced safe mode.")
+        else:
+            st.warning(f"{run_service} was isolated; its backup remains on standby.")
+    elif run_event == "Normal":
+        st.success("No service isolation or rerouting was needed for this normal-day drill.")
+    else:
+        st.info("The incident risk is below the selected tier's response threshold; monitoring continues without disruption.")
+    if run_event != "Normal":
+        if actions["critical_services_reachable"]:
+            st.markdown("### ✅ Recovery verification passed")
+            st.write("Critical city services remain connected in this simulated network.")
+        else:
+            st.warning("The critical-service connectivity check needs review.")
+    st.caption("The simulation handles one incident and one target service per run. It does not model concurrent incident queues.")
+
+st.caption("Cyber Resilience Smart City Network · Fictional services · Synthetic or locally evaluated labeled traffic")
