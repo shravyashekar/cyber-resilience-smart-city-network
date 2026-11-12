@@ -389,9 +389,21 @@ with risk_tab:
         f"0.25 × {risk['civic_impact_score']} = **{risk['risk_score']}/100**."
     )
     st.write(f"**Decision:** {actions['response_mode']} — {actions['response_detail']}")
-    st.caption("The selected simulated incident supplies threat severity. IDS predictions are evaluated separately and do not automatically trigger recovery.")
-    if run_event == "Normal":
-        st.info("Normal-day runs have no active threat, so no recovery action is taken; the score still shows the selected service's baseline criticality and civic impact.")
+    triage = actions.get("triage", {})
+    st.markdown("#### From detection to decision")
+    st.caption(
+        f"The IDS flags records, then triage checks {run_service}: an incident is declared when at least "
+        f"{triage.get('threshold', 0.25):.0%} of its records are flagged. The most likely threat type is "
+        "inferred from which features the flagged records deviate on, and that inferred threat sets the severity."
+    )
+    triage_cols = st.columns(3)
+    triage_cols[0].metric("Service alert rate", f"{triage.get('alert_rate', 0):.0%}",
+                          f"{triage.get('service_alerts', 0)} of {triage.get('service_records', 0)} records")
+    triage_cols[1].metric("Incident detected", "Yes" if triage.get("incident_detected") else "No")
+    triage_cols[2].metric("Inferred threat", actions.get("detected_threat", "Normal"),
+                          f"simulated: {EVENT_LABELS.get(actions.get('simulated_scenario', run_event), run_event)}")
+    if not triage.get("incident_detected"):
+        st.info("No incident was detected for this service, so no recovery action is taken; the score still shows the service's baseline criticality and civic impact.")
     st.caption("Illustrative classroom score; weights and service impact ratings are documented in README.md, not a validated operational risk standard.")
 
 with healing_tab:

@@ -14,6 +14,7 @@ The app does not scan devices, send traffic, connect to city infrastructure, or 
 - `risk_assessment.py` — maps threat severity, service tier, and civic impact to a documented 0–100 score.
 - `network_topology.py` — fictional NetworkX city network and service-tier metadata.
 - `self_healing.py` — risk- and tier-dependent failover, safe fallback, monitoring, isolation, and connectivity verification.
+- `incident_triage.py` — turns detector alerts into an incident decision and an inferred threat type for the target service.
 - `simulation.py` — runs one selected scenario and target service through the generator, detector, risk assessment, and response policy.
 - `benchmark_data.py` — bounded public-CSV loading and held-out, normal-trained detector evaluation.
 - `tests/test_phase2.py` — focused Phase 2 behavior and scenario tests.
@@ -56,9 +57,21 @@ With no selected scenario, generated records contain 78% normal and 22% attack t
 
 The optional **Labeled public CSV** path uses a stratified held-out sample. The Isolation Forest trains on normal-labeled training rows and predictions are evaluated against held-out labels. Results depend on the dataset, chosen label column and normal label, sample, and numeric features. A model flag is not proof of an attack.
 
+## From detection to response
+
+The selected scenario only shapes the generated traffic: incident records are attributed to the selected target service, while normal records are spread across the city. Attack effects are deliberately moderate, so they overlap with busy normal traffic and the detector misses some of them.
+
+After scoring, `incident_triage.py` decides what happened using only the detector's output:
+
+1. **Alert rate.** An incident is declared for the target service when at least 25% of its records are flagged and there are at least 3 alerts. Scattered false alarms on a normal day stay below this.
+2. **Threat type.** The flagged records are compared with records from the other services (the city's normal peer baseline). The feature pattern they deviate on decides the inferred threat: packet and byte rate for DoS, ports and destinations for a port scan, failed connections and CPU load for malware-like activity.
+3. **Response.** The inferred threat, not the dropdown, sets the threat severity used by the risk score and recovery policy below.
+
+The dashboard's Risk Assessment section shows the alert rate, whether an incident was declared, and the inferred threat next to the simulated one.
+
 ## Risk assessment and recovery policy
 
-Threat severity is mapped as Normal=None (0), Port Scan=Medium (50), Malware-like=High (75), and DoS=Critical (100). Service criticality is derived from tier: Tier 1=100, Tier 2=65, Tier 3=30. Civic-impact ratings are explicit in `network_topology.py` on a 0–100 scale: Hospital 100, Emergency Dispatch 95, Traffic Control 70, Water Supply 85, Power Grid 100, and Public Display 25.
+Threat severity for the inferred threat is mapped as Normal=None (0), Port Scan=Medium (50), Malware-like=High (75), and DoS=Critical (100). Service criticality is derived from tier: Tier 1=100, Tier 2=65, Tier 3=30. Civic-impact ratings are explicit in `network_topology.py` on a 0–100 scale: Hospital 100, Emergency Dispatch 95, Traffic Control 70, Water Supply 85, Power Grid 100, and Public Display 25.
 
 The transparent score is:
 
