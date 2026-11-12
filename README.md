@@ -45,6 +45,8 @@ python -m streamlit run dashboard.py
 ```
 
 Open the local address printed by Streamlit. Press `Ctrl+C` to stop it.
+Use the **Light theme** toggle at the top-right of the dashboard to switch from dark to light colors.
+Choose the target in **City service for this drill** on the main page, then click **Run city drill** beside it. Choose the scenario and traffic source in the expanded left sidebar.
 
 ## IDS methodology and generated scenarios
 

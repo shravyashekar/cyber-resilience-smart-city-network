@@ -10,13 +10,22 @@ from anomaly_detector import classification_metrics
 from network_topology import SERVICES
 from simulation import run_simulation
 
-st.set_page_config(page_title="Cyber Resilience Smart City Network", page_icon="🛡️", layout="wide")
+st.set_page_config(
+    page_title="Cyber Resilience Smart City Network",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+st.session_state.setdefault("light_theme", False)
+st.toggle("Light theme", key="light_theme", help="Switch the dashboard to a light color scheme.")
+
 st.markdown("""
 <style>
 html, body, [class*="css"] {font-family:Segoe UI,Arial,sans-serif;background:#07111f;color:#edf4ff}
 .stApp {background:radial-gradient(ellipse at 8% 0%,#122b45 0%,#07111f 58%)}
 [data-testid="stSidebar"] {background:#0b1928;border-right:1px solid #23364d}
-.block-container {padding-top:2.2rem;max-width:1400px}
+.block-container {padding-top:2.2rem;max-width:1400px;position:relative}
+.st-key-light_theme {position:absolute !important;top:4rem !important;right:0 !important;width:auto !important;z-index:1000}
 [data-testid="stHeader"] {background:transparent !important}
 [data-testid="stToolbar"], [data-testid="stDecoration"] {display:none !important}
 .brand-tag {color:#60d7c2;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
@@ -58,11 +67,73 @@ html, body, [class*="css"] {font-family:Segoe UI,Arial,sans-serif;background:#07
 [data-testid="stMetricLabel"] {color:#a9bbcf}
 [data-testid="stMetricValue"] {font-weight:750}
 [data-testid="stPlotlyChart"] {background:#0c1928;border:1px solid #21364c;border-radius:16px;padding:8px}
-div.stButton > button[kind="primary"] {background:linear-gradient(90deg,#e94f61,#ff775f);border:0;border-radius:10px;font-weight:700;min-height:46px}
-div.stButton > button[kind="primary"]:hover {border:0;filter:brightness(1.08)}
+div.stButton > button[kind="primary"],
+div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+    background:linear-gradient(90deg,#e94f61,#ff775f);border:0;border-radius:10px;font-weight:700;min-height:46px
+}
+div.stButton > button[kind="primary"]:hover,
+div[data-testid="stFormSubmitButton"] > button[kind="primary"]:hover {border:0;filter:brightness(1.08)}
 @media(max-width:900px){.flow-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{font-size:34px}}
 </style>
 """, unsafe_allow_html=True)
+
+if st.session_state["light_theme"]:
+    st.markdown("""
+    <style>
+    html, body, [class*="css"] {background:#f4f7fb !important;color:#1f2937 !important}
+    .stApp {background:#f4f7fb !important;color:#1f2937 !important}
+    [data-testid="stSidebar"] {background:#eaf0f6 !important;border-right:1px solid #d5dee8}
+    [data-testid="stHeader"] {background:rgba(244,247,251,.95) !important}
+    h1, h2, h3, h4, p, label, li, [data-testid="stMarkdownContainer"] {color:#1f2937}
+    .brand-tag, .flow-num, .tier-action {color:#087f72}
+    .subtitle, .flow-copy, .tier-services, .service-kind, .state-label,
+    [data-testid="stMetricLabel"] {color:#526174 !important}
+    .result-box {background:linear-gradient(135deg,#e4f1f5,#eef4fa);border-color:#c5d8e2}
+    .result-title, .flow-title, .tier-title, .service-name {color:#172b3b !important}
+    .result-copy {color:#40566a !important}
+    .result-pill {background:#d9f3eb;color:#08765e}
+    .flow-card, .tier-card, .service-card, [data-testid="stMetric"] {
+        background:#ffffff !important;border-color:#d5e0ea !important
+    }
+    .service-icon, .tier-badge {background:#e7eef5;color:#334b61}
+    .state-box {background:#f5f8fb;border-color:#d8e1ea}
+    .state-value {color:#26384a}
+    .status-ok {color:#08765e}
+    .status-alert {color:#b5472e}
+    .status-fallback {color:#8a6500}
+    [data-testid="stPlotlyChart"] {background:#ffffff;border-color:#d5e0ea}
+    [data-testid="stDataFrame"], [data-testid="stTable"] {background:#ffffff;color:#1f2937}
+    [data-testid="stMetricDelta"] {
+        background:#d9f3eb !important;color:#08765e !important
+    }
+    [data-testid="stMetricDelta"] * {color:#08765e !important}
+    [data-testid="stMetricDelta"] svg {fill:#08765e !important}
+    [data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]) {
+        background:#e9f7ef !important;border:1px solid #a8d7b6 !important
+    }
+    [data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]) {
+        background:#eaf4fc !important;border:1px solid #b6d6ef !important
+    }
+    [data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]) {
+        background:#fff6dc !important;border:1px solid #ebd48a !important
+    }
+    [data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]) {
+        background:#fff0f0 !important;border:1px solid #efb4b4 !important
+    }
+    [data-testid="stAlertContentSuccess"], [data-testid="stAlertContentSuccess"] * {color:#176b3a !important}
+    [data-testid="stAlertContentInfo"], [data-testid="stAlertContentInfo"] * {color:#175a8c !important}
+    [data-testid="stAlertContentWarning"], [data-testid="stAlertContentWarning"] * {color:#704d00 !important}
+    [data-testid="stAlertContentError"], [data-testid="stAlertContentError"] * {color:#9b1c1c !important}
+    [data-testid^="stAlertContent"] svg {fill:currentColor !important}
+    [data-baseweb="select"] > div, [data-baseweb="input"] > div,
+    [data-testid="stFileUploaderDropzone"] {
+        background:#ffffff !important;color:#1f2937 !important;border-color:#cbd5e1 !important
+    }
+    [data-testid="stTabs"] button {color:#334155}
+    div.stButton > button[kind="primary"],
+    div[data-testid="stFormSubmitButton"] > button[kind="primary"] {color:#ffffff}
+    </style>
+    """, unsafe_allow_html=True)
 
 EVENTS = {
     "Denial of Service": "DoS",
@@ -76,7 +147,6 @@ st.sidebar.markdown('<div class="brand-tag">SMART CITY RESILIENCE · CITY DRILL<
 st.sidebar.title("Set up a drill")
 event_label = st.sidebar.selectbox("What should happen?", list(EVENTS))
 event = EVENTS[event_label]
-service = st.sidebar.selectbox("City service", list(SERVICES))
 data_source = st.sidebar.radio("Traffic data", ["Generated demo data", "Labeled public CSV"])
 uploaded_csv = None
 preview_frame = None
@@ -119,12 +189,26 @@ with st.sidebar.expander("More options"):
     seed = st.number_input(
         "Repeatable run number", min_value=0, max_value=99999, value=17, step=1
     )
-run = st.sidebar.button("▶  Run city drill", type="primary", use_container_width=True)
 st.sidebar.caption("City services and recovery actions are simulated. Uploaded CSV traffic is used only for offline detector evaluation.")
 
 st.markdown('<div class="brand-tag">INTERACTIVE CITY RESILIENCE DEMO</div>', unsafe_allow_html=True)
 st.markdown('<h1 class="hero">Cyber Resilience Smart City Network</h1>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">See how a smart city can spot trouble and keep essential services running.</div>', unsafe_allow_html=True)
+
+st.markdown("**City service for this drill**")
+with st.form("city_drill_form"):
+    service_col, run_col = st.columns([0.68, 0.32])
+    with service_col:
+        service = st.selectbox(
+            "City service for this drill",
+            list(SERVICES),
+            key="selected_service",
+            label_visibility="collapsed",
+        )
+    with run_col:
+        run = st.form_submit_button(
+            "▶  Run city drill", type="primary", use_container_width=True
+        )
 
 st.subheader("How it works")
 st.markdown("""
@@ -269,7 +353,17 @@ with ids_tab:
             part = data[data.detection == label]
             if not part.empty:
                 hist.add_trace(go.Histogram(x=part.anomaly_score, name=label, marker_color=color, opacity=.78, nbinsx=32))
-        hist.update_layout(barmode="overlay", height=330, margin=dict(l=5, r=5, t=15, b=5), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#b5c7dc"), xaxis_title="Pattern score", yaxis_title="Records")
+        chart_font_color = "#263547" if st.session_state["light_theme"] else "#b5c7dc"
+        hist.update_layout(
+            barmode="overlay",
+            height=330,
+            margin=dict(l=5, r=5, t=15, b=5),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=chart_font_color),
+            xaxis_title="Pattern score",
+            yaxis_title="Records",
+        )
         st.plotly_chart(hist, use_container_width=True)
     with table:
         summary = data.groupby("detection").size().rename("Records").reset_index().rename(columns={"detection": "Detector result"})
