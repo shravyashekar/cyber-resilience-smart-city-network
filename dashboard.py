@@ -285,7 +285,7 @@ m2.metric("Isolation Forest flags", f"{anomalies:,}", f"{ratio:.1%} predicted an
 m3.metric("Risk score", f"{actions['risk_score']}/100", actions["risk_assessment"]["threat_severity"] + " threat")
 
 ids_tab, risk_tab, overview_tab, healing_tab = st.tabs(
-    ["Intrusion Detection System", "Risk Assessment", "Network Overview", "Self-Healing"]
+    ["Intrusion Detection System", "Risk Assessment", "Network Overview", "Healing"]
 )
 
 with overview_tab:
@@ -407,7 +407,7 @@ with risk_tab:
     st.caption("Illustrative classroom score; weights and service impact ratings are documented in README.md, not a validated operational risk standard.")
 
 with healing_tab:
-    st.subheader("Tier-aware self-healing")
+    st.subheader("Tier-aware healing")
     st.markdown(f"**Scenario:** {run_label} &nbsp; · &nbsp; **Service:** {run_service} &nbsp; · &nbsp; **Risk:** {actions['risk_score']}/100")
     st.markdown(f"**Tier {actions['tier']} response: {actions['response_mode']}**")
     st.write(actions["response_detail"])
